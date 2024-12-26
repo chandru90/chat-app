@@ -12,17 +12,24 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
+// app.use(
+//   cors({
+//     origin: [
+//       "http://localhost:3000",
+//       "http://localhost:5175",
+//       "http://localhost:5174",
+//     ],
+//     credentials: true,
+//   })
+// );
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:5175",
-      "http://localhost:5174",
-    ],
-    credentials: true,
+    origin: "*", // Allow requests from any origin
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true, // You can still keep this if you want to allow credentials (cookies, headers)
   })
 );
-
 app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
