@@ -10,7 +10,13 @@ const cron = require("node-cron");
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = socketIo(server, {
+  cors: {
+    origin: "https://chat-client-bice.vercel.app",
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
 
 // app.use(
 //   cors({
