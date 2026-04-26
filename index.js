@@ -24,7 +24,7 @@ const io = socketIo(server);
 // );
 app.use(
   cors({
-    origin: "*", // Allow requests from any origin
+    origin: ["*", "https://chat-client-bice.vercel.app"], // Allow requests from any origin
     methods: ["GET", "POST", "PUT", "DELETE"],
     
     // You can still keep this if you want to allow credentials (cookies, headers)
