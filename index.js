@@ -7,6 +7,7 @@ const authRoutes = require("./routes/auth");
 const messageRoutes = require("./routes/messages");
 const { mongoURI } = require("./config");
 const cron = require("node-cron");
+const { truncate } = require("fs");
 
 const app = express();
 const server = http.createServer(app);
@@ -32,7 +33,7 @@ app.use(
   cors({
     origin: ["*", "https://chat-client-bice.vercel.app"], // Allow requests from any origin
     methods: ["GET", "POST", "PUT", "DELETE"],
-    
+    credentials:true
     // You can still keep this if you want to allow credentials (cookies, headers)
   })
 );
