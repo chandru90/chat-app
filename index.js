@@ -27,7 +27,7 @@ app.use(
     origin: "*", // Allow requests from any origin
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true, // You can still keep this if you want to allow credentials (cookies, headers)
+    // You can still keep this if you want to allow credentials (cookies, headers)
   })
 );
 app.use(express.json());
