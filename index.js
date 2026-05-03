@@ -71,7 +71,7 @@ io.on("connection", (socket) => {
         `Immediate message sent from ${sender} to ${receiver}: ${text}`
       );
     } else {
-      console.log(`User ${receiver} is not connected.`);
+      console.log(`User ${receiver} is not connected...`);
     }
   });
 
