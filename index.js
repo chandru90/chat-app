@@ -13,7 +13,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "https://chat-client-git-updated-chandru90s-projects.vercel.app",
+    origin: "https://chat-client-bice.vercel.app",
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -31,7 +31,7 @@ const io = socketIo(server, {
 // );
 app.use(
   cors({
-    origin: ["*", "https://chat-client-git-updated-chandru90s-projects.vercel.app"], // Allow requests from any origin
+    origin: ["*", "https://chat-client-bice.vercel.app"], // Allow requests from any origin
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials:true
     // You can still keep this if you want to allow credentials (cookies, headers)
