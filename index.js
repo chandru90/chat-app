@@ -31,10 +31,9 @@ const io = socketIo(server, {
 // );
 app.use(
   cors({
-    origin: [ "https://chat-client-bice.vercel.app"], // Allow requests from any origin
+    origin: "https://chat-client-bice.vercel.app",
     methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials:true
-    // You can still keep this if you want to allow credentials (cookies, headers)
+    credentials: true,
   })
 );
 app.use(express.json());
@@ -71,7 +70,7 @@ io.on("connection", (socket) => {
         `Immediate message sent from ${sender} to ${receiver}: ${text}`
       );
     } else {
-      console.log(`User ${receiver} is not connected...`);
+      console.log(`User ${receiver} is not connected.`);
     }
   });
 
