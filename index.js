@@ -13,9 +13,9 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "https://chat-client-bice.vercel.app",
+    origin: "*",
     methods: ["GET", "POST"],
-    credentials: true
+     allowedHeaders: ["Content-Type", "Authorization"],
   }
 });
 
@@ -31,12 +31,16 @@ const io = socketIo(server, {
 // );
 app.use(
   cors({
-    origin: ["https://chat-client-bice.vercel.app"], // Allow requests from any origin
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials:true
-    // You can still keep this if you want to allow credentials (cookies, headers)
+    origin: "*", // allow all origins (use specific domain in production)
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+// ✅ Handle preflight requests
+app.options("*", cors());
+
+// ✅ Middleware
 app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
