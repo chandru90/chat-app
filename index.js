@@ -31,11 +31,16 @@ const io = socketIo(server, {
 // );
 app.use(
   cors({
-    origin: "https://chat-client-bice.vercel.app",
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true,
+    origin: "*", // allow all origins (use specific domain in production)
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+// ✅ Handle preflight requests
+app.options("*", cors());
+
+// ✅ Middleware
 app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
@@ -124,3 +129,10 @@ app.get("/api/auth/active-users", (req, res) => {
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+
+
+
+
+
+
