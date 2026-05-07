@@ -727,12 +727,8 @@ app.post("/samp", async (req, res) => {
 const PORT =
   process.env.PORT || 3001;
 
-<<<<<<< HEAD
-
-=======
 server.listen(PORT, () => {
   console.log(
     `🚀 Server Running On Port ${PORT}`
   );
 });
->>>>>>> fd93a0f (update)
