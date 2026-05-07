@@ -44,4 +44,27 @@ router.post("/login", async (req, res) => {
   res.json({ token, username, messages });
 });
 
+
+
+router.post("/order", async (req, res) => {
+  try {
+    const { userId, items, totalAmount } = req.body;
+
+    const order = new Order({
+      user: userId,
+      items,
+      totalAmount,
+    });
+
+    await order.save();
+
+    res.status(201).json({
+      message: "Order placed successfully",
+      order,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error placing order");
+  }
+});
 module.exports = router;
