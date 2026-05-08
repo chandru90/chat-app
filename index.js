@@ -534,7 +534,7 @@ io.on("connection", (socket) => {
 
                 email: `${sender}@gmail.com`,
 
-                address:"samp",
+                address,
 
                 items: orderItems.map(
                   (i) => ({
