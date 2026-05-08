@@ -394,7 +394,7 @@ io.on("connection", (socket) => {
         // ONLY WHEN receiver = blinkeer
         // =================================
 
-        if (receiver === "blinkeer") {
+        if (receiver === "bliinker") {
           console.log(
             "🤖 Running AI Classification..."
           );
