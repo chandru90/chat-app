@@ -131,7 +131,6 @@
 // server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 
-
 import express from "express";
 import mongoose from "mongoose";
 import http from "http";
@@ -139,6 +138,7 @@ import { Server } from "socket.io";
 import cors from "cors";
 import axios from "axios";
 import { pipeline } from "@xenova/transformers";
+
 import authRoutes from "./routes/auth.js";
 import messageRoutes from "./routes/messages.js";
 import { mongoURI } from "./config.js";
@@ -171,8 +171,6 @@ app.use(
   })
 );
 
-app.options("*", cors());
-
 app.use(express.json());
 
 // ======================================
@@ -189,7 +187,7 @@ app.use("/api/messages", messageRoutes);
 mongoose
   .connect(mongoURI)
   .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) => console.log(err));
+  .catch((err) => console.log("❌ Mongo Error:", err));
 
 // ======================================
 // USERS
@@ -242,19 +240,28 @@ let cachedProducts = [];
 // ======================================
 
 async function loadProducts() {
-  if (cachedProducts.length) {
+  try {
+    if (cachedProducts.length) {
+      return cachedProducts;
+    }
+
+    const res = await axios.get(
+      "https://fakestoreapi.com/products"
+    );
+
+    cachedProducts = res.data;
+
+    console.log("📦 Products Loaded");
+
     return cachedProducts;
+  } catch (err) {
+    console.log(
+      "❌ Product Load Error:",
+      err.message
+    );
+
+    return [];
   }
-
-  const res = await axios.get(
-    "https://fakestoreapi.com/products"
-  );
-
-  cachedProducts = res.data;
-
-  console.log("📦 Products Loaded");
-
-  return cachedProducts;
 }
 
 // ======================================
@@ -353,16 +360,25 @@ io.on("connection", (socket) => {
   // ====================================
 
   socket.on("registerUser", (username) => {
-    // normalize username
-    username = username.trim().toLowerCase();
+    try {
+      username = username.trim().toLowerCase();
 
-    users[username] = socket.id;
+      users[username] = socket.id;
 
-    console.log(`👤 User Registered: ${username}`);
+      console.log(
+        `👤 User Registered: ${username}`
+      );
 
-    console.log("🟢 Active Users:", Object.keys(users));
-
-    io.emit("updateUsers", Object.keys(users));
+      io.emit(
+        "updateUsers",
+        Object.keys(users)
+      );
+    } catch (err) {
+      console.log(
+        "❌ Register Error:",
+        err.message
+      );
+    }
   });
 
   // ====================================
@@ -373,13 +389,14 @@ io.on("connection", (socket) => {
     "sendMessage",
     async ({ sender, receiver, text }) => {
       try {
-        // normalize names
         sender = sender.trim().toLowerCase();
-        receiver = receiver.trim().toLowerCase();
 
-        // --------------------------------
+        receiver =
+          receiver.trim().toLowerCase();
+
+        // =================================
         // BASE MESSAGE
-        // --------------------------------
+        // =================================
 
         const message = {
           sender,
@@ -390,8 +407,7 @@ io.on("connection", (socket) => {
         };
 
         // =================================
-        // AI CLASSIFICATION
-        // ONLY WHEN receiver = blinkeer
+        // AI BOT SECTION
         // =================================
 
         if (receiver === "bliinkr") {
@@ -399,37 +415,47 @@ io.on("connection", (socket) => {
             "🤖 Running AI Classification..."
           );
 
-          // -------------------------------
-          // INTENT
-          // -------------------------------
+          // =================================
+          // GET INTENT
+          // =================================
 
           const { intent, confidence } =
             await getIntent(text);
 
-          // -------------------------------
-          // ITEMS
-          // -------------------------------
+          console.log(
+            "🧠 Intent:",
+            intent
+          );
+
+          // =================================
+          // EXTRACT ITEMS
+          // =================================
 
           const items =
             await extractItems(text);
 
-          // -------------------------------
-          // QUANTITY
-          // -------------------------------
+          console.log(
+            "🛒 Items:",
+            items
+          );
+
+          // =================================
+          // EXTRACT QUANTITY
+          // =================================
 
           const quantity =
             extractQuantity(text);
 
-          // -------------------------------
-          // ADDRESS
-          // -------------------------------
+          // =================================
+          // EXTRACT ADDRESS
+          // =================================
 
           const address =
             extractAddress(text);
 
-          // -------------------------------
+          // =================================
           // ORDER ITEMS
-          // -------------------------------
+          // =================================
 
           const orderItems = items.map(
             (i) => ({
@@ -442,28 +468,40 @@ io.on("connection", (socket) => {
             })
           );
 
+          // =================================
+          // TOTAL AMOUNT
+          // =================================
+
           const totalAmount =
             orderItems.reduce(
-              (sum, i) => sum + i.total,
+              (sum, item) =>
+                sum + item.total,
               0
             );
 
-          // -------------------------------
+          // =================================
           // ORDER OBJECT
-          // -------------------------------
+          // =================================
 
           const order = {
             orderId: Date.now(),
+
             intent,
+
             confidence,
+
             items: orderItems,
+
             address,
+
             routedTo:
               routeByMeaning(
                 intent,
                 items
               ),
+
             totalAmount,
+
             status:
               intent ===
               "place order"
@@ -473,7 +511,11 @@ io.on("connection", (socket) => {
 
           console.log(
             "🧾 AI ORDER:",
-            order
+            JSON.stringify(
+              order,
+              null,
+              2
+            )
           );
 
           // =================================
@@ -489,15 +531,20 @@ io.on("connection", (socket) => {
             try {
               const orderDetails = {
                 customerName: sender,
+
                 email: `${sender}@gmail.com`,
+
                 address,
 
                 items: orderItems.map(
                   (i) => ({
                     productId:
                       i.productId,
+
                     title: i.title,
+
                     price: i.price,
+
                     quantity:
                       i.quantity,
                   })
@@ -507,24 +554,65 @@ io.on("connection", (socket) => {
               };
 
               console.log(
-                "📦 Checkout Payload:",
-                orderDetails
+                "📦 Checkout Payload:"
               );
 
-              checkoutResponse =
+              console.log(
+                JSON.stringify(
+                  orderDetails,
+                  null,
+                  2
+                )
+              );
+
+              // =================================
+              // CHECKOUT API
+              // =================================
+
+              const response =
                 await axios.post(
                   "https://ecommercestore-yxcj.onrender.com/api/orders/checkout",
-                  orderDetails
+                  orderDetails,
+                  {
+                    headers: {
+                      "Content-Type":
+                        "application/json",
+                    },
+
+                    timeout: 30000,
+                  }
                 );
+
+              checkoutResponse =
+                response.data;
 
               console.log(
                 "✅ Checkout Success"
               );
+
+              console.log(
+                checkoutResponse
+              );
             } catch (err) {
               console.log(
-                "❌ Checkout Failed:",
-                err.message
+                "❌ Checkout Failed"
               );
+
+              if (err.response) {
+                console.log(
+                  "STATUS:",
+                  err.response.status
+                );
+
+                console.log(
+                  "DATA:",
+                  err.response.data
+                );
+              } else {
+                console.log(
+                  err.message
+                );
+              }
             }
           }
 
@@ -545,27 +633,23 @@ io.on("connection", (socket) => {
 
               classification: {
                 intent,
+
                 confidence,
 
                 order,
 
                 checkout:
-                  checkoutResponse?.data ||
+                  checkoutResponse ||
                   null,
               },
             });
 
             console.log(
-              `🤖 AI Result sent to ${receiver}`
+              `🤖 AI Response Sent To ${receiver}`
             );
           } else {
             console.log(
-              `❌ ${receiver} not online`
-            );
-
-            console.log(
-              "Current users:",
-              users
+              `❌ ${receiver} Not Online`
             );
           }
 
@@ -588,16 +672,11 @@ io.on("connection", (socket) => {
           );
 
           console.log(
-            `📨 Message sent from ${sender} to ${receiver}`
+            `📨 Message Sent From ${sender} To ${receiver}`
           );
         } else {
           console.log(
-            `❌ User ${receiver} not connected`
-          );
-
-          console.log(
-            "Current users:",
-            users
+            `❌ User ${receiver} Not Connected`
           );
         }
       } catch (err) {
@@ -621,15 +700,23 @@ io.on("connection", (socket) => {
       text,
       date,
     }) => {
-      sender = sender.trim().toLowerCase();
-      receiver =
-        receiver.trim().toLowerCase();
+      try {
+        sender =
+          sender.trim().toLowerCase();
 
-      const delay =
-        new Date(date).getTime() -
-        Date.now();
+        receiver =
+          receiver.trim().toLowerCase();
 
-      if (delay > 0) {
+        const delay =
+          new Date(date).getTime() -
+          Date.now();
+
+        if (delay <= 0) {
+          return console.log(
+            "❌ Scheduled Time In Past"
+          );
+        }
+
         const job = setTimeout(() => {
           const recipientSocketId =
             users[receiver];
@@ -637,7 +724,9 @@ io.on("connection", (socket) => {
           if (recipientSocketId) {
             const message = {
               sender,
+              receiver,
               text,
+
               timestamp:
                 new Date().toLocaleTimeString(),
             };
@@ -650,7 +739,7 @@ io.on("connection", (socket) => {
             );
 
             console.log(
-              `⏰ Scheduled message sent from ${sender} to ${receiver}`
+              `⏰ Scheduled Message Sent`
             );
           }
         }, delay);
@@ -663,11 +752,12 @@ io.on("connection", (socket) => {
         });
 
         console.log(
-          `📅 Message Scheduled`
+          "📅 Message Scheduled"
         );
-      } else {
+      } catch (err) {
         console.log(
-          "❌ Scheduled time is in the past"
+          "❌ Schedule Error:",
+          err.message
         );
       }
     }
@@ -694,12 +784,7 @@ io.on("connection", (socket) => {
         );
 
         console.log(
-          `❌ User disconnected: ${username}`
-        );
-
-        console.log(
-          "🔴 Active Users:",
-          Object.keys(users)
+          `❌ User Disconnected: ${username}`
         );
 
         break;
@@ -734,15 +819,29 @@ app.post("/samp", async (req, res) => {
       await extractItems(message);
 
     res.json({
+      success: true,
       intent,
       confidence,
       items,
     });
   } catch (err) {
     res.status(500).json({
+      success: false,
       error: err.message,
     });
   }
+});
+
+// ======================================
+// HEALTH CHECK
+// ======================================
+
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message:
+      "🚀 AI Chat Server Running",
+  });
 });
 
 // ======================================
