@@ -132,9 +132,6 @@
 
 
 
-
-// server.js
-
 import express from "express";
 import mongoose from "mongoose";
 import http from "http";
@@ -142,7 +139,6 @@ import { Server } from "socket.io";
 import cors from "cors";
 import axios from "axios";
 import { pipeline } from "@xenova/transformers";
-import cron from "node-cron";
 import authRoutes from "./routes/auth.js";
 import messageRoutes from "./routes/messages.js";
 import { mongoURI } from "./config.js";
@@ -208,9 +204,9 @@ let scheduledMessages = [];
 
 let classifier;
 
-// --------------------------------------
+// ======================================
 // LOAD MODEL
-// --------------------------------------
+// ======================================
 
 async function loadModel() {
   classifier = await pipeline(
@@ -241,9 +237,9 @@ const labels = [
 
 let cachedProducts = [];
 
-// --------------------------------------
+// ======================================
 // LOAD PRODUCTS
-// --------------------------------------
+// ======================================
 
 async function loadProducts() {
   if (cachedProducts.length) {
@@ -357,9 +353,14 @@ io.on("connection", (socket) => {
   // ====================================
 
   socket.on("registerUser", (username) => {
+    // normalize username
+    username = username.trim().toLowerCase();
+
     users[username] = socket.id;
 
     console.log(`👤 User Registered: ${username}`);
+
+    console.log("🟢 Active Users:", Object.keys(users));
 
     io.emit("updateUsers", Object.keys(users));
   });
@@ -372,12 +373,17 @@ io.on("connection", (socket) => {
     "sendMessage",
     async ({ sender, receiver, text }) => {
       try {
+        // normalize names
+        sender = sender.trim().toLowerCase();
+        receiver = receiver.trim().toLowerCase();
+
         // --------------------------------
         // BASE MESSAGE
         // --------------------------------
 
         const message = {
           sender,
+          receiver,
           text,
           timestamp:
             new Date().toLocaleTimeString(),
@@ -385,7 +391,7 @@ io.on("connection", (socket) => {
 
         // =================================
         // AI CLASSIFICATION
-        // ONLY WHEN receiver = bllinker
+        // ONLY WHEN receiver = blinkeer
         // =================================
 
         if (receiver === "blinkeer") {
@@ -556,6 +562,11 @@ io.on("connection", (socket) => {
             console.log(
               `❌ ${receiver} not online`
             );
+
+            console.log(
+              "Current users:",
+              users
+            );
           }
 
           return;
@@ -583,6 +594,11 @@ io.on("connection", (socket) => {
           console.log(
             `❌ User ${receiver} not connected`
           );
+
+          console.log(
+            "Current users:",
+            users
+          );
         }
       } catch (err) {
         console.log(
@@ -605,6 +621,10 @@ io.on("connection", (socket) => {
       text,
       date,
     }) => {
+      sender = sender.trim().toLowerCase();
+      receiver =
+        receiver.trim().toLowerCase();
+
       const delay =
         new Date(date).getTime() -
         Date.now();
@@ -675,6 +695,11 @@ io.on("connection", (socket) => {
 
         console.log(
           `❌ User disconnected: ${username}`
+        );
+
+        console.log(
+          "🔴 Active Users:",
+          Object.keys(users)
         );
 
         break;
