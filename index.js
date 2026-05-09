@@ -2099,6 +2099,398 @@
 // });
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// import express from "express";
+// import mongoose from "mongoose";
+// import http from "http";
+// import { Server } from "socket.io";
+// import cors from "cors";
+// import axios from "axios";
+// import { pipeline } from "@xenova/transformers";
+
+// import authRoutes from "./routes/auth.js";
+// import messageRoutes from "./routes/messages.js";
+// import { mongoURI } from "./config.js";
+
+// // ======================
+// // APP + SERVER
+// // ======================
+// const app = express();
+// const server = http.createServer(app);
+
+// const io = new Server(server, {
+//   cors: {
+//     origin: "*",
+//     methods: ["GET", "POST"],
+//   },
+// });
+
+// // ======================
+// // MIDDLEWARE
+// // ======================
+// app.use(cors());
+// app.use(express.json());
+
+// // ======================
+// // ROUTES
+// // ======================
+// app.use("/api/auth", authRoutes);
+// app.use("/api/messages", messageRoutes);
+
+// // ======================
+// // DB
+// // ======================
+// mongoose
+//   .connect(mongoURI)
+//   .then(() => console.log("✅ MongoDB Connected"))
+//   .catch((err) => console.log("❌ Mongo Error:", err.message));
+
+// // ======================
+// // USERS
+// // ======================
+// let users = {};
+
+// // ======================
+// // AI MODEL
+// // ======================
+// let classifier;
+
+// async function loadModel() {
+//   classifier = await pipeline(
+//     "zero-shot-classification",
+//     "Xenova/distilbert-base-uncased-mnli"
+//   );
+//   console.log("🤖 AI Model Loaded");
+// }
+
+// // ======================
+// // LABELS
+// // ======================
+// const labels = [
+//   "place order",
+//   "cancel order",
+//   "track order",
+//   "complaint",
+//   "other",
+// ];
+
+// // ======================
+// // PRODUCTS CACHE
+// // ======================
+// let cachedProducts = [];
+
+// async function loadProducts() {
+//   try {
+//     const res = await axios.get("https://fakestoreapi.com/products");
+//     cachedProducts = res.data;
+//     console.log(`📦 ${cachedProducts.length} Products Loaded`);
+//   } catch (err) {
+//     console.log("❌ Product Load Error:", err.message);
+//   }
+// }
+
+// // ======================
+// // EXTRACT ITEMS
+// // ======================
+// async function extractItems(text) {
+//   const lowerText = text.toLowerCase();
+
+//   return cachedProducts
+//     .filter((p) =>
+//       lowerText.includes(p.title.toLowerCase().split(" ")[0])
+//     )
+//     .map((p) => ({
+//       productId: p.id,
+//       title: p.title,
+//       price: p.price,
+//       category: p.category,
+//     }));
+// }
+
+// // ======================
+// // QUANTITY
+// // ======================
+// function extractQuantity(text) {
+//   const match = text.match(/\d+/);
+//   return match ? parseInt(match[0]) : 1;
+// }
+
+// // ======================
+// // ADDRESS (SAFE)
+// // ======================
+// function extractAddress(text) {
+//   const match = text.match(/to (.+)/i);
+//   return match ? match[1] : "not provided";
+// }
+
+// // ======================
+// // ROUTING
+// // ======================
+// function routeByMeaning(intent, items) {
+//   if (intent === "place order") {
+//     if (items.some((i) => i.category?.includes("electronics"))) {
+//       return "ELECTRONICS_STORE";
+//     }
+//     return "GENERAL_STORE";
+//   }
+
+//   if (intent === "cancel order") return "ORDER_CANCEL_SERVICE";
+//   if (intent === "track order") return "ORDER_TRACKING_SERVICE";
+
+//   return "MANUAL_SUPPORT";
+// }
+
+// // ======================
+// // INIT
+// // ======================
+// await loadModel();
+// await loadProducts();
+
+// console.log("🚀 AI + Products Ready");
+
+// // ======================
+// // SOCKET
+// // ======================
+// io.on("connection", (socket) => {
+//   console.log("⚡ Client Connected");
+
+//   // ======================
+//   // REGISTER USER
+//   // ======================
+//   socket.on("registerUser", (username) => {
+//     username = username.trim().toLowerCase();
+//     users[username] = socket.id;
+
+//     io.emit("updateUsers", Object.keys(users));
+//   });
+
+//   // ======================
+//   // SEND MESSAGE
+//   // ======================
+//   socket.on("sendMessage", async ({ sender, receiver, text }) => {
+//     try {
+//       sender = sender.trim().toLowerCase();
+//       receiver = receiver.trim().toLowerCase();
+
+//       const message = {
+//         sender,
+//         receiver,
+//         text,
+//         timestamp: new Date().toLocaleTimeString(),
+//       };
+
+//       // ======================
+//       // NORMAL CHAT
+//       // ======================
+//       if (receiver !== "bliinkr") {
+//         const socketId = users[receiver];
+
+//         if (socketId) {
+//           io.to(socketId).emit("receiveMessage", message);
+//         }
+//         return;
+//       }
+
+//       // ======================
+//       // AI FLOW
+//       // ======================
+//       const result = await classifier(text, labels);
+//       const intent = result.labels[0];
+//       const confidence = result.scores[0];
+
+//       const items = await extractItems(text);
+//       const quantity = extractQuantity(text);
+//       const address = extractAddress(text);
+
+//       const orderItems = items.map((item) => ({
+//         productId: item.productId,
+//         title: item.title,
+//         price: item.price,
+//         quantity,
+//         total: item.price * quantity,
+//       }));
+
+//       const totalAmount = orderItems.reduce(
+//         (sum, item) => sum + item.total,
+//         0
+//       );
+
+//       const order = {
+//         orderId: Date.now(),
+//         intent,
+//         confidence,
+//         items: orderItems,
+//         address,
+//         routedTo: routeByMeaning(intent, items),
+//         totalAmount,
+//         status: intent === "place order" ? "CONFIRMED" : "PENDING",
+//       };
+
+//       io.emit("newOrder", {
+//         sender,
+//         order,
+//         timestamp: new Date().toLocaleTimeString(),
+//       });
+
+//       // ======================
+//       // CHECKOUT (FIXED ORDER DETAILS)
+//       // ======================
+//       let checkoutResponse = null;
+
+//       if (intent === "place order" && orderItems.length > 0) {
+//         try {
+//           // 🔥 FINAL CLEAN ORDER DETAILS (YOUR FORMAT)
+//           const orderDetails = {
+//             customerName: sender,
+//             email: `${sender}@gmail.com`,
+//             address: address || "not provided",
+
+//             items: orderItems.map((i) => ({
+//               productId: i.productId,
+//               title: i.title,
+//               price: i.price,
+//               quantity: i.quantity,
+//             })),
+
+//             totalAmount: Number(totalAmount),
+//           };
+
+//           console.log("📦 ORDER DETAILS:");
+//           console.log(JSON.stringify(orderDetails, null, 2));
+
+//           const response = await axios.post(
+//             "https://ecommercestore-yxcj.onrender.com/api/orders/checkout",
+//             orderDetails,
+//             {
+//               headers: {
+//                 "Content-Type": "application/json",
+//               },
+//               timeout: 30000,
+//             }
+//           );
+
+//           checkoutResponse = response.data;
+
+//           console.log("✅ Checkout Success");
+//         } catch (err) {
+//           console.log("❌ Checkout Error:");
+
+//           if (err.response) {
+//             console.log("STATUS:", err.response.status);
+
+//             const data = err.response.data;
+
+//             console.log("FULL ERROR:");
+//             console.log(JSON.stringify(data, null, 2));
+
+//             // 🔥 EXACT FIELD DEBUGGING
+//             if (data?.missingFields) {
+//               console.log("🚨 Missing Fields:", data.missingFields);
+//             }
+
+//             if (data?.errors) {
+//               console.log("🚨 Validation Errors:");
+//               Object.keys(data.errors).forEach((f) => {
+//                 console.log(`- ${f}: ${data.errors[f].message}`);
+//               });
+//             }
+
+//             if (data?.message) {
+//               console.log("MESSAGE:", data.message);
+//             }
+//           } else {
+//             console.log("NETWORK ERROR:", err.message);
+//           }
+//         }
+//       }
+
+//       // ======================
+//       // RESPONSE TO USER
+//       // ======================
+//       const socketId = users[sender];
+
+//       if (socketId) {
+//         io.to(socketId).emit("receiveMessage", {
+//           sender: "bliinkr",
+//           receiver: sender,
+//           text:
+//             orderItems.length > 0
+//               ? "✅ Order processed successfully"
+//               : "❌ No matching products found",
+//           timestamp: new Date().toLocaleTimeString(),
+//           ai: true,
+//           classification: {
+//             intent,
+//             confidence,
+//             order,
+//             checkout: checkoutResponse,
+//           },
+//         });
+//       }
+//     } catch (err) {
+//       console.log("❌ AI ERROR:", err.message);
+//     }
+//   });
+
+//   // ======================
+//   // DISCONNECT
+//   // ======================
+//   socket.on("disconnect", () => {
+//     for (const user in users) {
+//       if (users[user] === socket.id) {
+//         delete users[user];
+//         io.emit("updateUsers", Object.keys(users));
+//         break;
+//       }
+//     }
+//   });
+// });
+
+// // ======================
+// // HEALTH CHECK
+// // ======================
+// app.get("/", (req, res) => {
+//   res.json({
+//     success: true,
+//     message: "🚀 AI Chat Server Running",
+//   });
+// });
+
+// // ======================
+// // START SERVER
+// // ======================
+// const PORT = process.env.PORT || 3001;
+
+// server.listen(PORT, () => {
+//   console.log(`🚀 Server Running On Port ${PORT}`);
+// });
+
+
+
+
 import express from "express";
 import mongoose from "mongoose";
 import http from "http";
@@ -2145,21 +2537,40 @@ mongoose
   .catch((err) => console.log("❌ Mongo Error:", err.message));
 
 // ======================
-// USERS
+// GLOBAL STATE
 // ======================
 let users = {};
+let classifier = null;
+let cachedProducts = [];
 
 // ======================
-// AI MODEL
+// LOAD AI MODEL
 // ======================
-let classifier;
-
 async function loadModel() {
   classifier = await pipeline(
     "zero-shot-classification",
     "Xenova/distilbert-base-uncased-mnli"
   );
   console.log("🤖 AI Model Loaded");
+}
+
+// ======================
+// LOAD PRODUCTS (SAFE)
+// ======================
+async function loadProducts() {
+  try {
+    console.log("📡 Fetching products...");
+    const res = await axios.get("https://fakestoreapi.com/products", {
+      timeout: 15000,
+    });
+
+    cachedProducts = res.data || [];
+
+    console.log(`📦 ${cachedProducts.length} Products Loaded`);
+  } catch (err) {
+    console.log("❌ Product Load Error:", err.message);
+    cachedProducts = []; // prevent crash
+  }
 }
 
 // ======================
@@ -2174,36 +2585,27 @@ const labels = [
 ];
 
 // ======================
-// PRODUCTS CACHE
-// ======================
-let cachedProducts = [];
-
-async function loadProducts() {
-  try {
-    const res = await axios.get("https://fakestoreapi.com/products");
-    cachedProducts = res.data;
-    console.log(`📦 ${cachedProducts.length} Products Loaded`);
-  } catch (err) {
-    console.log("❌ Product Load Error:", err.message);
-  }
-}
-
-// ======================
-// EXTRACT ITEMS
+// PRODUCT EXTRACTION (FIXED)
 // ======================
 async function extractItems(text) {
   const lowerText = text.toLowerCase();
 
-  return cachedProducts
-    .filter((p) =>
-      lowerText.includes(p.title.toLowerCase().split(" ")[0])
-    )
-    .map((p) => ({
-      productId: p.id,
-      title: p.title,
-      price: p.price,
-      category: p.category,
-    }));
+  const matched = cachedProducts.filter((p) => {
+    const words = p.title.toLowerCase().split(" ");
+
+    return words.some(
+      (w) => w.length > 3 && lowerText.includes(w)
+    );
+  });
+
+  console.log("🔎 Extracted Items:", matched.length);
+
+  return matched.map((p) => ({
+    productId: p.id,
+    title: p.title,
+    price: p.price,
+    category: p.category,
+  }));
 }
 
 // ======================
@@ -2215,7 +2617,7 @@ function extractQuantity(text) {
 }
 
 // ======================
-// ADDRESS (SAFE)
+// ADDRESS
 // ======================
 function extractAddress(text) {
   const match = text.match(/to (.+)/i);
@@ -2223,7 +2625,7 @@ function extractAddress(text) {
 }
 
 // ======================
-// ROUTING
+// ROUTING LOGIC
 // ======================
 function routeByMeaning(intent, items) {
   if (intent === "place order") {
@@ -2240,22 +2642,12 @@ function routeByMeaning(intent, items) {
 }
 
 // ======================
-// INIT
-// ======================
-await loadModel();
-await loadProducts();
-
-console.log("🚀 AI + Products Ready");
-
-// ======================
-// SOCKET
+// SOCKET CONNECTION
 // ======================
 io.on("connection", (socket) => {
   console.log("⚡ Client Connected");
 
-  // ======================
   // REGISTER USER
-  // ======================
   socket.on("registerUser", (username) => {
     username = username.trim().toLowerCase();
     users[username] = socket.id;
@@ -2263,9 +2655,7 @@ io.on("connection", (socket) => {
     io.emit("updateUsers", Object.keys(users));
   });
 
-  // ======================
   // SEND MESSAGE
-  // ======================
   socket.on("sendMessage", async ({ sender, receiver, text }) => {
     try {
       sender = sender.trim().toLowerCase();
@@ -2291,7 +2681,7 @@ io.on("connection", (socket) => {
       }
 
       // ======================
-      // AI FLOW
+      // AI CLASSIFICATION
       // ======================
       const result = await classifier(text, labels);
       const intent = result.labels[0];
@@ -2332,25 +2722,22 @@ io.on("connection", (socket) => {
       });
 
       // ======================
-      // CHECKOUT (FIXED ORDER DETAILS)
+      // CHECKOUT
       // ======================
       let checkoutResponse = null;
 
       if (intent === "place order" && orderItems.length > 0) {
         try {
-          // 🔥 FINAL CLEAN ORDER DETAILS (YOUR FORMAT)
           const orderDetails = {
             customerName: sender,
             email: `${sender}@gmail.com`,
             address: address || "not provided",
-
             items: orderItems.map((i) => ({
               productId: i.productId,
               title: i.title,
               price: i.price,
               quantity: i.quantity,
             })),
-
             totalAmount: Number(totalAmount),
           };
 
@@ -2361,9 +2748,7 @@ io.on("connection", (socket) => {
             "https://ecommercestore-yxcj.onrender.com/api/orders/checkout",
             orderDetails,
             {
-              headers: {
-                "Content-Type": "application/json",
-              },
+              headers: { "Content-Type": "application/json" },
               timeout: 30000,
             }
           );
@@ -2372,39 +2757,12 @@ io.on("connection", (socket) => {
 
           console.log("✅ Checkout Success");
         } catch (err) {
-          console.log("❌ Checkout Error:");
-
-          if (err.response) {
-            console.log("STATUS:", err.response.status);
-
-            const data = err.response.data;
-
-            console.log("FULL ERROR:");
-            console.log(JSON.stringify(data, null, 2));
-
-            // 🔥 EXACT FIELD DEBUGGING
-            if (data?.missingFields) {
-              console.log("🚨 Missing Fields:", data.missingFields);
-            }
-
-            if (data?.errors) {
-              console.log("🚨 Validation Errors:");
-              Object.keys(data.errors).forEach((f) => {
-                console.log(`- ${f}: ${data.errors[f].message}`);
-              });
-            }
-
-            if (data?.message) {
-              console.log("MESSAGE:", data.message);
-            }
-          } else {
-            console.log("NETWORK ERROR:", err.message);
-          }
+          console.log("❌ Checkout Error:", err.message);
         }
       }
 
       // ======================
-      // RESPONSE TO USER
+      // RESPONSE
       // ======================
       const socketId = users[sender];
 
@@ -2431,9 +2789,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ======================
   // DISCONNECT
-  // ======================
   socket.on("disconnect", () => {
     for (const user in users) {
       if (users[user] === socket.id) {
@@ -2456,10 +2812,22 @@ app.get("/", (req, res) => {
 });
 
 // ======================
-// START SERVER
+// START SERVER (SAFE BOOTSTRAP)
 // ======================
-const PORT = process.env.PORT || 3001;
+async function startServer() {
+  try {
+    await loadModel();
+    await loadProducts();
 
-server.listen(PORT, () => {
-  console.log(`🚀 Server Running On Port ${PORT}`);
-});
+    console.log("🚀 AI + Products Ready");
+
+    const PORT = process.env.PORT || 3001;
+    server.listen(PORT, () => {
+      console.log(`🚀 Server Running On Port ${PORT}`);
+    });
+  } catch (err) {
+    console.log("❌ Server Startup Error:", err.message);
+  }
+}
+
+startServer();
