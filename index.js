@@ -4304,6 +4304,7 @@ io.on(
               "https://ecommercestore-yxcj.onrender.com/api/orders/checkout",
               orderDetails,
               {
+                timeout: 20000,
                 headers: {
                   "Content-Type":
                     "application/json",
